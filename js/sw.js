@@ -41,7 +41,7 @@ const handlePost = (
 ) => {
 	event.respondWith(
 		new Response("redirecting", {
-			headers: { Location: "/" },
+			headers: { Location: location.protocol + '//' + location.host + '/' },
 			status: 303,
 		})
 	);
