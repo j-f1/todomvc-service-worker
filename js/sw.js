@@ -1,23 +1,25 @@
 ///<reference lib="es2015"/>
 ///<reference lib="webworker.importscripts"/>
 /** @typedef {{ id: number, title: string, completed: boolean, editing: boolean }} Todo */
-importScripts("/node_modules/localforage/dist/localforage.js");
+importScripts("https://unpkg.com/localforage@1.7.3/dist/localforage.js");
 importScripts("/js/template.js");
 let render = null;
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open("v1")
-      .then((cache) =>
-        cache.addAll([
-          "/index.html",
-          "/css/app.css",
-          "/js/sw.js",
-          "/js/template.js",
-          "/sw.js",
-        ])
-      )
-  );
+	event.waitUntil(
+		caches
+			.open("v1")
+			.then((cache) =>
+				cache.addAll([
+					"https://unpkg.com/todomvc-app-css@2.3.0/index.css",
+					"https://unpkg.com/localforage@1.7.3/dist/localforage.js",
+					"/index.html",
+					"/css/app.css",
+					"/js/sw.js",
+					"/js/template.js",
+					"/sw.js",
+				])
+			)
+	);
 });
 
 const pageRes = (body) =>
