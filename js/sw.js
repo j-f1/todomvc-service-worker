@@ -16,7 +16,6 @@ self.addEventListener("install", (event) => {
 					"/css/app.css",
 					"/js/sw.js",
 					"/js/template.js",
-					"/sw.js",
 				])
 			)
 	);

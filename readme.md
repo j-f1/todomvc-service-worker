@@ -3,7 +3,7 @@
 Todo:
 
 - esc to cancel editing (maybe just invite user to reload or smth?)
-- do not persist editing mode
+- do not persist editing mode (maybe reset it when loading page?)
 - escape user supplied text
 
 ## Credit
