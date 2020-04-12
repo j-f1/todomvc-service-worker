@@ -68,7 +68,7 @@ self.addEventListener("fetch", (event) => {
 								'<script class="registration ready">'
 							)
 							.replace(
-								/<!-- app start -->.+?<!-- app end -->/,
+								/<!-- app start -->[\s\S]+?<!-- app end -->/,
 								self.render(
 									todos,
 									todos.filter(
