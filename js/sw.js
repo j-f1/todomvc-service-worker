@@ -33,6 +33,14 @@ const getTodos = () =>
 /** @type {(todos: readonly Todo[]) => Promise<void> */
 const setTodos = (todos) => localforage.setItem("todos", todos);
 
+const redirectBack = () =>
+	new Response("redirecting", {
+		headers: {
+			Location: location.protocol + "//" + location.host + "/",
+		},
+		status: 303,
+	});
+
 /** @typedef {(todos: readonly Todo[], formData: FormData) => void} FormHandler */
 const handlePost = (
 	/** @type {FetchEvent} */ event,
@@ -41,15 +49,7 @@ const handlePost = (
 	event.respondWith(
 		Promise.all([getTodos(), event.request.formData()])
 			.then(([todos, formData]) => cb(todos, formData))
-			.then(
-				() =>
-					new Response("redirecting", {
-						headers: {
-							Location: location.protocol + "//" + location.host + "/",
-						},
-						status: 303,
-					})
-			)
+			.then(redirectBack, redirectBack)
 	);
 };
 self.addEventListener("fetch", (event) => {
@@ -84,6 +84,7 @@ self.addEventListener("fetch", (event) => {
 							)
 					)
 				)
+				.catch((err) => new Response(err.message + "\n" + err.stack))
 		);
 	} else if (route == "/new") {
 		handlePost(event, (todos, formData) => {
@@ -138,7 +139,10 @@ self.addEventListener("fetch", (event) => {
 		);
 	} else {
 		event.respondWith(
-			caches.match(event.request).then((res) => res || fetch(event.request))
+			caches
+				.match(event.request)
+				.catch(() => null)
+				.then((res) => res || fetch(event.request))
 		);
 		event.waitUntil(
 			caches
