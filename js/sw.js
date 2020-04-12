@@ -40,16 +40,17 @@ const handlePost = (
 	/** @type {FormHandler} */ cb
 ) => {
 	event.respondWith(
-		new Response("redirecting", {
-			headers: { Location: location.protocol + '//' + location.host + '/' },
-			status: 303,
-		})
-	);
-	event.waitUntil(
-		Promise.all([
-			getTodos(),
-			event.request.formData(),
-		]).then(([todos, formData]) => cb(todos, formData))
+		Promise.all([getTodos(), event.request.formData()])
+			.then(([todos, formData]) => cb(todos, formData))
+			.then(
+				() =>
+					new Response("redirecting", {
+						headers: {
+							Location: location.protocol + "//" + location.host + "/",
+						},
+						status: 303,
+					})
+			)
 	);
 };
 self.addEventListener("fetch", (event) => {
@@ -144,9 +145,7 @@ self.addEventListener("fetch", (event) => {
 			caches
 				.open(CACHE)
 				.then((cache) =>
-					fetch(event.request).then((res) =>
-						cache.put(event.request, res)
-					)
+					fetch(event.request).then((res) => cache.put(event.request, res))
 				)
 		);
 	}

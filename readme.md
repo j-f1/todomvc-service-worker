@@ -4,6 +4,7 @@ Todo:
 
 - esc to cancel editing (maybe just invite user to reload or smth?)
 - do not persist editing mode
+- escape user supplied text
 
 ## Credit
 
