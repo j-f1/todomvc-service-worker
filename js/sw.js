@@ -3,11 +3,11 @@
 /** @typedef {{ id: number, title: string, completed: boolean, editing: boolean }} Todo */
 importScripts("https://unpkg.com/localforage@1.7.3/dist/localforage.js");
 importScripts("/js/template.js");
-let render = null;
+const CACHE = "v1";
 self.addEventListener("install", (event) => {
 	event.waitUntil(
 		caches
-			.open("v1")
+			.open(CACHE)
 			.then((cache) =>
 				cache.addAll([
 					"https://unpkg.com/todomvc-app-css@2.3.0/index.css",
@@ -38,19 +38,20 @@ const setTodos = (todos) => localforage.setItem("todos", todos);
 const handlePost = (
 	/** @type {FetchEvent} */ event,
 	/** @type {FormHandler} */ cb
-) =>
+) => {
 	event.respondWith(
-		Promise.all([getTodos(), event.request.formData()])
-			.then(([todos, formData]) => cb(todos, formData))
-			.then(
-				() =>
-					new Response("redirecting", {
-						headers: { Location: "/" },
-						status: 303,
-					})
-			)
+		new Response("redirecting", {
+			headers: { Location: "/" },
+			status: 303,
+		})
 	);
-
+	event.waitUntil(
+		Promise.all([
+			getTodos(),
+			event.request.formData(),
+		]).then(([todos, formData]) => cb(todos, formData))
+	);
+};
 self.addEventListener("fetch", (event) => {
 	const parsed = new URL(event.request.url);
 	const route = parsed.pathname;
@@ -138,6 +139,15 @@ self.addEventListener("fetch", (event) => {
 	} else {
 		event.respondWith(
 			caches.match(event.request).then((res) => res || fetch(event.request))
+		);
+		evt.waitUntil(
+			caches
+				.open(CACHE)
+				.then((cache) =>
+					fetch(event.request).then((res) =>
+						cache.put(event.request, res)
+					)
+				)
 		);
 	}
 });
