@@ -10,7 +10,8 @@ self.render = (allTodos, todos, query) =>
 const renderHeader = (todos) => html`
 	<header class="header">
 		<h1>todos</h1>
-		<form action="/new" method="POST">
+		<form method="POST">
+			<input type="hidden" name="action" value="new" />
 			<input
 				name="title"
 				class="new-todo"
@@ -25,7 +26,8 @@ const renderHeader = (todos) => html`
 const renderMain = (allTodos, todos) =>
 	html`
 		<section class="main">
-			<form action="/toggle-all" method="POST">
+			<form method="POST">
+				<input type="hidden" name="action" value="toggle-all" />
 				<button
 					id="toggle-all"
 					class="toggle-all ${allTodos.every((t) => t.completed)
@@ -47,10 +49,10 @@ const renderTodo = (todo) => html`
 			? "editing"
 			: ""}"
 	>
-		<form action="/update" method="POST">
-			<div class="view">
+		<div class="view">
+			<form method="POST">
 				<input name="id" type="hidden" value="${todo.id}" />
-				<button hidden type="submit"></button>
+				<input type="hidden" name="action" value="complete" />
 				<input
 					name="completed"
 					class="toggle"
@@ -58,20 +60,35 @@ const renderTodo = (todo) => html`
 					${todo.completed ? "checked" : ""}
 					oninput="this.form.submit(); this.checked = !this.checked"
 				/>
-				<label ondblclick="this.nextElementSibling.click()"
+				<label ondblclick="this.parentNode.nextElementSibling.submit()"
 					>${todo.title}</label
 				>
-				<button hidden formaction="/edit" type="submit"></button>
-				<button class="destroy" formaction="/delete"></button>
-			</div>
-			<input
-				name="title"
-				class="edit"
-				value="${todo.title}"
-				${todo.editing ? "autofocus" : ""}
-				onblur="this.form.submit()"
-			/>
-		</form>
+			</form>
+			<form method="POST">
+				<input name="id" type="hidden" value="${todo.id}" />
+				<input type="hidden" name="action" value="edit" />
+			</form>
+			<form method="POST">
+				<input name="id" type="hidden" value="${todo.id}" />
+				<input type="hidden" name="action" value="delete" />
+				<button class="destroy"></button>
+			</form>
+		</div>
+		${todo.editing
+			? html`
+					<form method="POST">
+						<input name="id" type="hidden" value="${todo.id}" />
+						<input type="hidden" name="action" value="rename" />
+						<input
+							name="title"
+							class="edit"
+							value="${todo.title}"
+							autofocus
+							onblur="this.form.submit()"
+						/>
+					</form>
+			  `
+			: ""}
 	</li>
 `;
 
@@ -104,7 +121,8 @@ const renderFooter = (allTodos, query) =>
 			</ul>
 			${allTodos.some((t) => t.completed)
 				? html`
-						<form action="/clear-completed" method="POST">
+						<form method="POST">
+							<input type="hidden" name="action" value="clear-completed" />
 							<button type="submit" class="clear-completed">
 								Clear completed
 							</button>

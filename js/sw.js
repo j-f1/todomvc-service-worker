@@ -1,5 +1,5 @@
 ///<reference lib="es2015"/>
-///<reference lib="webworker.importscripts"/>
+///<reference lib="webworker"/>
 /** @typedef {{ id: number, title: string, completed: boolean, editing: boolean }} Todo */
 importScripts("https://unpkg.com/localforage@1.7.3/dist/localforage.js");
 importScripts("/js/template.js");
@@ -29,114 +29,117 @@ const pageRes = (body) =>
 /** @type {() => Promise<readonly Todo[]>} */
 const getTodos = () =>
 	localforage.getItem("todos").then((todos) => todos || []);
-
 /** @type {(todos: readonly Todo[]) => Promise<void> */
 const setTodos = (todos) => localforage.setItem("todos", todos);
 
-const redirectBack = () =>
-	new Response("redirecting", {
-		headers: {
-			Location: location.protocol + "//" + location.host + "/",
-		},
-		status: 303,
-	});
+const renderPage = (parsed) =>
+	caches
+		.match("/")
+		.catch(() => null)
+		.then((res) => res || fetch("/"))
+		.then((res) => Promise.all([res.text(), getTodos()]))
+		.then(([html, todos]) =>
+			pageRes(
+				html
+					.replace(
+						'<script class="registration">',
+						'<script class="registration ready">'
+					)
+					.replace(
+						/<!-- app start -->[\s\S]+?<!-- app end -->/,
+						self.render(
+							todos,
+							todos.filter(
+								parsed.searchParams.get("filter") === "active"
+									? (t) => !t.completed
+									: parsed.searchParams.get("filter") === "completed"
+									? (t) => t.completed
+									: () => true
+							),
+							parsed.searchParams
+						)
+					)
+			)
+		)
+		.catch((err) => new Response(err.message + "\n" + err.stack));
 
-/** @typedef {(todos: readonly Todo[], formData: FormData) => void} FormHandler */
-const handlePost = (
-	/** @type {FetchEvent} */ event,
-	/** @type {FormHandler} */ cb
-) => {
-	event.respondWith(
-		Promise.all([getTodos(), event.request.formData()])
-			.then(([todos, formData]) => cb(todos, formData))
-			.then(redirectBack, redirectBack)
-	);
-};
-self.addEventListener("fetch", (event) => {
+self.addEventListener("fetch", (/** @type {FetchEvent} */ event) => {
 	const parsed = new URL(event.request.url);
-	const route = parsed.pathname;
-	if (route === "/") {
-		event.respondWith(
-			caches
-				.match(event.request)
-				.then((res) => res || fetch(event.request))
-				.then((res) => Promise.all([res.text(), getTodos()]))
-				.then(([html, todos]) =>
-					pageRes(
-						html
-							.replace(
-								'<script class="registration">',
-								'<script class="registration ready">'
-							)
-							.replace(
-								/<!-- app start -->[\s\S]+?<!-- app end -->/,
-								self.render(
-									todos,
-									todos.filter(
-										parsed.searchParams.get("filter") === "active"
-											? (t) => !t.completed
-											: parsed.searchParams.get("filter") === "completed"
-											? (t) => t.completed
-											: () => true
-									),
-									parsed.searchParams
-								)
+	if (parsed.pathname === "/" && parsed.host === location.host) {
+		if (event.request.method === "POST") {
+			event.respondWith(
+				Promise.all([getTodos(), event.request.clone().text()])
+					.then(([todos, body]) => {
+						const params = new URLSearchParams(body);
+						switch (params.get("action")) {
+							case "new": {
+								const title = params.get("title").trim();
+								if (title) {
+									return setTodos(
+										todos.concat({
+											id: String(Date.now()),
+											completed: false,
+											editing: false,
+											title,
+										})
+									);
+								}
+								return;
+							}
+							case "edit":
+								return setTodos(
+									todos.map((t) =>
+										t.id === params.get("id") ? { ...t, editing: true } : t
+									)
+								);
+
+							case "rename":
+								return setTodos(
+									todos.map((t) =>
+										t.id === params.get("id")
+											? { ...t, editing: false, title: params.get("title") }
+											: t
+									)
+								);
+
+							case "complete":
+								return setTodos(
+									todos.map((t) =>
+										t.id === params.get("id")
+											? { ...t, completed: params.has("completed") }
+											: t
+									)
+								);
+
+							case "delete":
+								return setTodos(todos.filter((t) => t.id !== params.get("id")));
+
+							case "clear-completed":
+								return setTodos(todos.filter((t) => !t.completed));
+
+							case "toggle-all":
+								return setTodos(
+									todos.every((t) => t.completed)
+										? todos.map((t) => ({ ...t, completed: false }))
+										: todos.map((t) => ({ ...t, completed: true }))
+								);
+						}
+					})
+					.then(() => renderPage(parsed))
+					.catch(
+						async (err) =>
+							new Response(
+								err.message +
+									"\n" +
+									err.stack +
+									"\n" +
+									(await event.request.clone().text())
 							)
 					)
-				)
-				.catch((err) => new Response(err.message + "\n" + err.stack))
-		);
-	} else if (route == "/new") {
-		handlePost(event, (todos, formData) => {
-			const title = formData.get("title").trim();
-			if (title) {
-				setTodos(
-					todos.concat({
-						id: String(Date.now()),
-						completed: false,
-						editing: false,
-						title,
-					})
-				);
-			}
-		});
-	} else if (route == "/edit") {
-		handlePost(event, (todos, formData) =>
-			setTodos(
-				todos.map((t) =>
-					t.id === formData.get("id") ? { ...t, editing: true } : t
-				)
-			)
-		);
-	} else if (route == "/update") {
-		handlePost(event, (todos, formData) =>
-			setTodos(
-				todos.map((t) =>
-					t.id === formData.get("id")
-						? {
-								id: t.id,
-								completed: formData.has("completed"),
-								editing: false,
-								title: formData.get("commit") ? formData.get("title") : t.title,
-						  }
-						: t
-				)
-			)
-		);
-	} else if (route == "/delete") {
-		handlePost(event, (todos, formData) =>
-			setTodos(todos.filter((t) => t.id !== formData.get("id")))
-		);
-	} else if (route == "/clear-completed") {
-		handlePost(event, (todos) => setTodos(todos.filter((t) => !t.completed)));
-	} else if (route == "/toggle-all") {
-		handlePost(event, (todos) =>
-			setTodos(
-				todos.every((t) => t.completed)
-					? todos.map((t) => ({ ...t, completed: false }))
-					: todos.map((t) => ({ ...t, completed: true }))
-			)
-		);
+			);
+		} else {
+			event.respondWith(renderPage(parsed));
+		}
 	} else {
 		event.respondWith(
 			caches
